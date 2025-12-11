@@ -19,7 +19,11 @@ class HTMLToSceneHooks {
 			HTMLToScene.swapPosition('dice-box-canvas');
 			HTMLToScene._diceSoNiceInstalled = true;
 		});
-		Hooks.on('lightingRefresh', () => HTMLToScene.updateSceneControls()); //renderSceneControls happens before the scene data is loaded
+
+		// v10+ removed lightingRefresh, use canvasReady and refreshLighting instead
+		Hooks.on('refreshLighting', () => HTMLToScene.updateSceneControls());
+		// Also hook into renderSceneControls as a fallback
+		Hooks.on('renderSceneControls', () => HTMLToScene.updateSceneControls());
 
 		Hooks.on('renderSceneConfig', (...args) =>
 			HTMLToScene.renderSceneConfig(...args)

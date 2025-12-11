@@ -101,7 +101,7 @@ class HTMLToScene {
 
 	/** @type {Object} */
 	static get flags() {
-		return canvas.scene.data.flags;
+		return canvas.scene?.flags ?? {};
 	}
 
 	/** Getters **/
@@ -210,7 +210,9 @@ class HTMLToScene {
 	}
 
 	static init(...args) {
-		loadTemplates(['modules/html-to-scene/templates/sceneSettings.html']);
+		// Use namespaced function for v13+, fallback to global for older versions
+		const loadTemplatesFn = foundry?.applications?.handlebars?.loadTemplates ?? loadTemplates;
+		loadTemplatesFn(['modules/html-to-scene/templates/sceneSettings.html']);
 		ModuleSettings.registerSettings();
 		console.log(ModuleInfo.moduleprefix + 'Loaded');
 	}
@@ -294,7 +296,7 @@ class HTMLToScene {
 				this.nodeVisibility($('#ui-right')[0], 'visible');
 			}
 		} else {
-			this.setLeftStatus(this._oldLefttatus);
+			this.setLeftStatus(this._oldLeftStatus);
 			this.setBottomStatus(this._oldBottomStatus);
 			this.nodeVisibility($('#ui-top')[0], 'visible');
 			if (this.rightDisabled) {
@@ -438,29 +440,152 @@ class HTMLToScene {
 	 */
 
 	static async renderSceneConfig(sceneConfig, html, data) {
-		const ambItem = html.find('.item[data-tab=ambience]');
-		const ambTab = html.find('.tab[data-tab=ambience]');
+		// v13 uses Application v2 where html is a native HTMLElement, not jQuery
+		const htmlElement = html instanceof jQuery ? html[0] : html;
 
-		ambItem.after(
-			`<a class="item" data-tab="htmltoscene"><i class="fas fa-file-code"></i> ${game.i18n.localize(
-				'htmltoscene.modulename'
-			)}</a>`
-		);
-		let sceneTemplateData = await this.getSceneTemplateData(data);
-		ambTab.after(await this.getSceneHtml(sceneTemplateData));
+		console.log('HTML to Scene | Looking for tabs in SceneConfig...');
+		console.log('HTML to Scene | HTML element:', htmlElement);
+		console.log('HTML to Scene | HTML element tagName:', htmlElement?.tagName);
+		console.log('HTML to Scene | HTML element classes:', htmlElement?.className);
 
-		//Filepicker
-		/*$('#html-picker').click(() => {
-			const fp = new FilePicker({
-				type: 'any',
-				button: 'html-picker',
-				title: 'Select a HTML file',
-				callback: (url) => {
-					console.log(url);
-				},
+		// In v13, the html passed might be the application element itself
+		// We need to find tabs within it - try multiple strategies
+		let tabNav = null;
+		let tabContainer = null;
+
+		// Strategy 1: Look for nav element with tabs
+		tabNav = htmlElement.querySelector('nav.tabs, nav.sheet-tabs, .tabs-container nav, header nav');
+
+		// Strategy 2: Look for any element containing [data-tab] buttons
+		if (!tabNav) {
+			const tabButtons = htmlElement.querySelectorAll('[data-tab]');
+			if (tabButtons.length > 0) {
+				tabNav = tabButtons[0].parentElement;
+			}
+		}
+
+		// Strategy 3: Look for .window-content and find tabs there
+		if (!tabNav) {
+			const windowContent = htmlElement.querySelector('.window-content');
+			if (windowContent) {
+				tabNav = windowContent.querySelector('nav, .tabs, .sheet-tabs');
+				if (!tabNav) {
+					const tabButtons = windowContent.querySelectorAll('[data-tab]');
+					if (tabButtons.length > 0) {
+						tabNav = tabButtons[0].parentElement;
+					}
+				}
+			}
+		}
+
+		// Find container for tab content
+		tabContainer = htmlElement.querySelector('.window-content, .sheet-body, form, .app-body');
+
+		console.log('HTML to Scene | Tab nav found:', tabNav);
+		console.log('HTML to Scene | Tab container found:', tabContainer);
+
+		if (!tabNav) {
+			console.warn('HTML to Scene | Could not find tab navigation');
+			console.log('HTML to Scene | Full HTML structure:', htmlElement.innerHTML?.substring(0, 500));
+			return;
+		}
+
+		// Find the last tab button to insert after
+		const tabButtons = tabNav.querySelectorAll('[data-tab]');
+		const lastTabButton = tabButtons[tabButtons.length - 1];
+
+		// Get the tab group from the button (e.g., "sheet" for main tabs)
+		const tabGroup = lastTabButton?.dataset.group || 'sheet';
+
+		// Find tab content that matches the SAME group as the tab buttons (main tabs, not nested)
+		// In v13, main tab content uses data-group matching the button's data-group
+		let mainTabContents = (tabContainer || htmlElement).querySelectorAll(`.tab[data-group="${tabGroup}"]`);
+
+		// If no matches, try finding tabs that are direct children of the container
+		if (mainTabContents.length === 0) {
+			mainTabContents = (tabContainer || htmlElement).querySelectorAll(':scope > .tab, :scope > div.tab');
+		}
+
+		// Fallback to any .tab elements
+		if (mainTabContents.length === 0) {
+			mainTabContents = (tabContainer || htmlElement).querySelectorAll('.tab');
+		}
+
+		const lastTabContent = mainTabContents[mainTabContents.length - 1];
+
+		console.log('HTML to Scene | Found', tabButtons.length, 'tab buttons');
+		console.log('HTML to Scene | Tab group:', tabGroup);
+		console.log('HTML to Scene | Found', mainTabContents.length, 'main tab contents');
+		console.log('HTML to Scene | Last tab button:', lastTabButton);
+		console.log('HTML to Scene | Last tab content:', lastTabContent);
+
+		if (lastTabButton) {
+			// Add our custom tab button - copy attributes from existing tab button
+			const tabLabel = game.i18n.localize('htmltoscene.modulename');
+			const newTabButton = document.createElement('a');
+			newTabButton.className = lastTabButton.className || 'item';
+			newTabButton.dataset.tab = 'htmltoscene';
+			// Copy data-group and data-action if they exist (v13 uses these)
+			newTabButton.dataset.group = tabGroup;
+			if (lastTabButton.dataset.action) {
+				newTabButton.dataset.action = lastTabButton.dataset.action;
+			}
+			newTabButton.innerHTML = `<i class="fas fa-file-code"></i> ${tabLabel}`;
+			lastTabButton.after(newTabButton);
+
+			// Add our custom tab content
+			let sceneTemplateData = await this.getSceneTemplateData(data);
+			const templateHtml = await this.getSceneHtml(sceneTemplateData);
+
+			// Create a wrapper div for the tab content - match the structure of existing main tabs
+			const newTabContent = document.createElement('div');
+			newTabContent.className = 'tab scrollable';
+			newTabContent.dataset.tab = 'htmltoscene';
+			// Use the same group as the tab button for proper matching
+			newTabContent.dataset.group = tabGroup;
+
+			// Parse the template HTML and extract the inner content
+			const tempDiv = document.createElement('div');
+			tempDiv.innerHTML = templateHtml;
+			// The template wraps content in a div with class="tab" - we need the inner content
+			const innerContent = tempDiv.querySelector('.tab') || tempDiv;
+			newTabContent.innerHTML = innerContent.innerHTML || templateHtml;
+
+			// Find where to insert the tab content - should be sibling to other main tabs
+			if (lastTabContent && lastTabContent.parentNode) {
+				lastTabContent.after(newTabContent);
+			} else if (tabContainer) {
+				tabContainer.appendChild(newTabContent);
+			}
+
+			console.log('HTML to Scene | New tab content:', newTabContent);
+			console.log('HTML to Scene | New tab content classes:', newTabContent.className);
+			console.log('HTML to Scene | New tab content data-group:', newTabContent.dataset.group);
+
+			// Wire up tab click handling for our new tab
+			newTabButton.addEventListener('click', (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+
+				// Remove active class from all tab buttons in the same group
+				tabNav.querySelectorAll(`[data-tab][data-group="${tabGroup}"]`).forEach(t => t.classList.remove('active'));
+
+				// Remove active class from all tab contents in the same group
+				const groupContents = (tabContainer || htmlElement).querySelectorAll(`.tab[data-group="${tabGroup}"]`);
+				groupContents.forEach(t => t.classList.remove('active'));
+
+				// Add active class to our tab
+				newTabButton.classList.add('active');
+				newTabContent.classList.add('active');
+
+				console.log('HTML to Scene | Tab clicked, content should be visible now');
+				console.log('HTML to Scene | Tab content active classes:', newTabContent.classList.toString());
 			});
-			fp.browse();
-		});*/
+
+			console.log('HTML to Scene | Tab injected successfully');
+		} else {
+			console.warn('HTML to Scene | Could not find tab buttons in SceneConfig');
+		}
 	}
 
 	/**
@@ -472,13 +597,27 @@ class HTMLToScene {
 	 * @memberof HTMLToScene
 	 */
 	static getSceneTemplateData(hookData) {
-		const data = hookData.data?.flags?.htmltoscene || {
-			enable: false,
-			fileLoc: '',
-			minUI: true,
-			spaceRight: true,
-			rightDisabled: false,
-			hidePaused: false,
+		// v10+ uses document.flags instead of data.flags
+		const flags = hookData.document?.flags?.htmltoscene || hookData.data?.flags?.htmltoscene || {};
+		const data = {
+			enable: flags.enable ?? false,
+			fileLoc: flags.fileLoc ?? '',
+			minUI: flags.minUI ?? true,
+			spaceRight: flags.spaceRight ?? true,
+			rightDisabled: flags.rightDisabled ?? false,
+			hidePaused: flags.hidePaused ?? false,
+			keepTop: flags.keepTop ?? true,
+			keepPlayerList: flags.keepPlayerList ?? false,
+			keepBottomControls: flags.keepBottomControls ?? 0,
+			hideSmallTime: flags.hideSmallTime ?? false,
+			hideBoard: flags.hideBoard ?? false,
+			passData: flags.passData ?? false,
+			dataUpdateRate: flags.dataUpdateRate ?? 0,
+			iFrameRefreshRate: flags.iFrameRefreshRate ?? 0,
+			autoMacrosEnabled: flags.autoMacrosEnabled ?? false,
+			selfReadyMacroName: flags.selfReadyMacroName ?? '',
+			iframeReadyMacroName: flags.iframeReadyMacroName ?? '',
+			iframeUpdatedMacroName: flags.iframeUpdatedMacroName ?? '',
 		};
 		return data;
 	}
@@ -489,7 +628,9 @@ class HTMLToScene {
 	 * @param {HTMLToSceneSettings} settings
 	 */
 	static async getSceneHtml(settings) {
-		return await renderTemplate(
+		// Use namespaced function for v13+, fallback to global for older versions
+		const renderTemplateFn = foundry?.applications?.handlebars?.renderTemplate ?? renderTemplate;
+		return await renderTemplateFn(
 			'modules/html-to-scene/templates/sceneSettings.html',
 			settings
 		);
@@ -693,6 +834,7 @@ class HTMLToScene {
 	 * @returns Boolean
 	 */
 	static isDOMNodeShown(el) {
+		if (!el) return false;
 		return el.style.visibility != 'hidden' ? true : false;
 	}
 
@@ -825,7 +967,9 @@ class HTMLToScene {
 	static refreshIFrame() {
 		console.log(ModuleInfo.moduleprefix + 'Refreshing IFrame...');
 		let iframe = document.getElementById(ModuleInfo.moduleapp);
-		iframe.src = iframe.src;
+		if (iframe) {
+			iframe.src = iframe.src;
+		}
 	}
 
 	/**
@@ -834,18 +978,17 @@ class HTMLToScene {
 	 * @param {String} visibility
 	 */
 	static nodeVisibility(DOMNode, visibility) {
+		if (!DOMNode) return; // Safety check for missing DOM elements
 		if (
-			DOMNode === '#logo' &&
+			DOMNode.id === 'logo' &&
 			visibility === 'visible' &&
-			!this.showFoundryLogo()
+			!this.showFoundryLogo
 		)
 			return; //showFoundryLogo setting
 		if (visibility == 'visible' || visibility == 'hidden') {
 			DOMNode.style.visibility = visibility;
 		} else if (visibility == 'toggle') {
-			DOMNode.visibility = () => {
-				return DOMNode.style.visibility == 'visible' ? 'hidden' : 'visible';
-			};
+			DOMNode.style.visibility = DOMNode.style.visibility == 'visible' ? 'hidden' : 'visible';
 		}
 	}
 

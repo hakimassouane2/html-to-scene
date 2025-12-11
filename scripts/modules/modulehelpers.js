@@ -11,7 +11,8 @@ class HTMLToSceneHelpers {
 
 	static handlebarsHelpers() {
 		Handlebars.registerHelper('ifEquals', function (v1, v2, options) {
-			if (v1 === v2) {
+			// Use loose equality to handle string/number comparison (e.g., 0 == "0")
+			if (v1 == v2) {
 				return options.fn(this);
 			}
 			return options.inverse(this);

@@ -2,7 +2,16 @@ import { HTMLToScene } from './HTMLToScene.js';
 
 /**
  * @module html-to-scene.FoundryVTTInterface
+ *
+ * Helper to safely get global classes that may not exist in all Foundry versions
  */
+function safeGet(name) {
+	try {
+		return globalThis[name];
+	} catch (e) {
+		return undefined;
+	}
+}
 
 class FoundryVTTInterface {
 	/**
@@ -15,10 +24,10 @@ class FoundryVTTInterface {
 	}
 	// Document
 	static get Document() {
-		return Document;
+		return safeGet('Document');
 	}
 	static get ClientDatabaseBackend() {
-		return ClientDatabaseBackend;
+		return safeGet('ClientDatabaseBackend');
 	}
 	static get DocumentCollection() {
 		return DocumentCollection;

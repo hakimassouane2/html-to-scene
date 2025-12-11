@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Piano</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      .container {
+        text-align: center;
+      }
+
+      h1 {
+        color: #e94560;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .player-info {
+        color: #a0a0a0;
+        margin-bottom: 20px;
+        font-size: 14px;
+      }
+
+      .piano {
+        display: flex;
+        justify-content: center;
+        position: relative;
+        padding: 20px;
+        background: linear-gradient(180deg, #2a2a3a 0%, #1a1a2a 100%);
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .white-keys {
+        display: flex;
+      }
+
+      .white-key {
+        width: 45px;
+        height: 180px;
+        background: linear-gradient(180deg, #f0f0f0 0%, #d0d0d0 100%);
+        border: 1px solid #999;
+        border-radius: 0 0 6px 6px;
+        margin: 0 1px;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.1s ease;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 8px;
+        font-size: 10px;
+        color: #666;
+        font-weight: bold;
+      }
+
+      .white-key:hover {
+        background: linear-gradient(180deg, #fff 0%, #e0e0e0 100%);
+      }
+
+      .white-key.active {
+        background: linear-gradient(180deg, #e94560 0%, #c73e54 100%);
+        transform: translateY(3px);
+        box-shadow: 0 2px 5px rgba(233, 69, 96, 0.5);
+      }
+
+      .white-key.other-player {
+        background: linear-gradient(180deg, #4ecdc4 0%, #3ab5ad 100%);
+        transform: translateY(3px);
+        box-shadow: 0 2px 5px rgba(78, 205, 196, 0.5);
+      }
+
+      .black-keys {
+        position: absolute;
+        display: flex;
+        top: 20px;
+        left: 20px;
+        pointer-events: none;
+      }
+
+      .black-key {
+        width: 30px;
+        height: 110px;
+        background: linear-gradient(180deg, #333 0%, #111 100%);
+        border-radius: 0 0 4px 4px;
+        cursor: pointer;
+        z-index: 1;
+        transition: all 0.1s ease;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        padding-bottom: 6px;
+        font-size: 9px;
+        color: #888;
+        font-weight: bold;
+        pointer-events: auto;
+        position: absolute;
+      }
+
+      .black-key:hover {
+        background: linear-gradient(180deg, #444 0%, #222 100%);
+      }
+
+      .black-key.active {
+        background: linear-gradient(180deg, #e94560 0%, #c73e54 100%);
+        transform: translateY(2px);
+        box-shadow: 0 2px 5px rgba(233, 69, 96, 0.5);
+      }
+
+      .black-key.other-player {
+        background: linear-gradient(180deg, #4ecdc4 0%, #3ab5ad 100%);
+        transform: translateY(2px);
+        box-shadow: 0 2px 5px rgba(78, 205, 196, 0.5);
+      }
+
+      /* Position black keys - 3 octaves (21 white keys) */
+      /* Octave 1 (C3-B3) */
+      .black-key[data-note="C#3"] {
+        left: 32px;
+      }
+      .black-key[data-note="D#3"] {
+        left: 79px;
+      }
+      .black-key[data-note="F#3"] {
+        left: 173px;
+      }
+      .black-key[data-note="G#3"] {
+        left: 220px;
+      }
+      .black-key[data-note="A#3"] {
+        left: 267px;
+      }
+      /* Octave 2 (C4-B4) */
+      .black-key[data-note="C#4"] {
+        left: 361px;
+      }
+      .black-key[data-note="D#4"] {
+        left: 408px;
+      }
+      .black-key[data-note="F#4"] {
+        left: 502px;
+      }
+      .black-key[data-note="G#4"] {
+        left: 549px;
+      }
+      .black-key[data-note="A#4"] {
+        left: 596px;
+      }
+      /* Octave 3 (C5-B5) */
+      .black-key[data-note="C#5"] {
+        left: 690px;
+      }
+      .black-key[data-note="D#5"] {
+        left: 737px;
+      }
+      .black-key[data-note="F#5"] {
+        left: 831px;
+      }
+      .black-key[data-note="G#5"] {
+        left: 878px;
+      }
+      .black-key[data-note="A#5"] {
+        left: 925px;
+      }
+
+      .instructions {
+        margin-top: 20px;
+        color: #888;
+        font-size: 13px;
+        line-height: 1.8;
+      }
+
+      .instructions kbd {
+        background: #333;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #555;
+        color: #fff;
+        font-family: monospace;
+        font-size: 11px;
+      }
+
+      .status {
+        margin-top: 15px;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+      }
+
+      .status.connected {
+        background: rgba(78, 205, 196, 0.2);
+        color: #4ecdc4;
+      }
+
+      .status.disconnected {
+        background: rgba(233, 69, 96, 0.2);
+        color: #e94560;
+      }
+
+      .last-played {
+        margin-top: 10px;
+        color: #666;
+        font-size: 12px;
+        min-height: 20px;
+      }
+
+      .volume-control {
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+
+      .volume-control label {
+        color: #888;
+        font-size: 13px;
+      }
+
+      .volume-control input[type="range"] {
+        width: 150px;
+        height: 6px;
+        -webkit-appearance: none;
+        appearance: none;
+        background: #333;
+        border-radius: 3px;
+        outline: none;
+      }
+
+      .volume-control input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        background: #e94560;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .volume-control input[type="range"]::-webkit-slider-thumb:hover {
+        background: #ff6b8a;
+      }
+
+      .volume-control input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        background: #e94560;
+        border-radius: 50%;
+        cursor: pointer;
+        border: none;
+      }
+
+      .volume-control .volume-value {
+        color: #e94560;
+        font-size: 13px;
+        min-width: 40px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Synchronized Piano</h1>
+      <div class="player-info">
+        Playing as: <span id="playerName">Loading...</span>
+      </div>
+
+      <div class="piano">
+        <div class="white-keys">
+          <!-- Octave 3 (C3-B3) -->
+          <div class="white-key" data-note="C3" data-key="z">Z</div>
+          <div class="white-key" data-note="D3" data-key="x">X</div>
+          <div class="white-key" data-note="E3" data-key="c">C</div>
+          <div class="white-key" data-note="F3" data-key="v">V</div>
+          <div class="white-key" data-note="G3" data-key="b">B</div>
+          <div class="white-key" data-note="A3" data-key="n">N</div>
+          <div class="white-key" data-note="B3" data-key="m">M</div>
+          <!-- Octave 4 (C4-B4) -->
+          <div class="white-key" data-note="C4" data-key="a">A</div>
+          <div class="white-key" data-note="D4" data-key="s">S</div>
+          <div class="white-key" data-note="E4" data-key="d">D</div>
+          <div class="white-key" data-note="F4" data-key="f">F</div>
+          <div class="white-key" data-note="G4" data-key="g">G</div>
+          <div class="white-key" data-note="A4" data-key="h">H</div>
+          <div class="white-key" data-note="B4" data-key="j">J</div>
+          <!-- Octave 5 (C5-B5) -->
+          <div class="white-key" data-note="C5" data-key="q">Q</div>
+          <div class="white-key" data-note="D5" data-key="w">W</div>
+          <div class="white-key" data-note="E5" data-key="e">E</div>
+          <div class="white-key" data-note="F5" data-key="r">R</div>
+          <div class="white-key" data-note="G5" data-key="t">T</div>
+          <div class="white-key" data-note="A5" data-key="y">Y</div>
+          <div class="white-key" data-note="B5" data-key="u">U</div>
+        </div>
+        <div class="black-keys">
+          <!-- Octave 3 -->
+          <div class="black-key" data-note="C#3" data-key="1">1</div>
+          <div class="black-key" data-note="D#3" data-key="2">2</div>
+          <div class="black-key" data-note="F#3" data-key="3">3</div>
+          <div class="black-key" data-note="G#3" data-key="4">4</div>
+          <div class="black-key" data-note="A#3" data-key="5">5</div>
+          <!-- Octave 4 -->
+          <div class="black-key" data-note="C#4" data-key="6">6</div>
+          <div class="black-key" data-note="D#4" data-key="7">7</div>
+          <div class="black-key" data-note="F#4" data-key="8">8</div>
+          <div class="black-key" data-note="G#4" data-key="9">9</div>
+          <div class="black-key" data-note="A#4" data-key="0">0</div>
+          <!-- Octave 5 -->
+          <div class="black-key" data-note="C#5" data-key="-">-</div>
+          <div class="black-key" data-note="D#5" data-key="=">=</div>
+          <div class="black-key" data-note="F#5" data-key="[">[</div>
+          <div class="black-key" data-note="G#5" data-key="]">]</div>
+          <div class="black-key" data-note="A#5" data-key="\">\</div>
+        </div>
+      </div>
+
+      <div class="volume-control">
+        <label>Volume:</label>
+        <input type="range" id="volumeSlider" min="0" max="100" value="50" />
+        <span id="volumeValue" class="volume-value">50%</span>
+      </div>
+
+      <div id="status" class="status disconnected">
+        Connecting to Foundry...
+      </div>
+      <div id="lastPlayed" class="last-played"></div>
+    </div>
+
+    <script>
+      // Audio context for generating piano sounds
+      let audioContext = null;
+
+      // Volume control (0-1)
+      let volume = 0.5;
+
+      // Note frequencies (Hz) - 3 octaves
+      const noteFrequencies = {
+        // Octave 3
+        C3: 130.81,
+        "C#3": 138.59,
+        D3: 146.83,
+        "D#3": 155.56,
+        E3: 164.81,
+        F3: 174.61,
+        "F#3": 185.0,
+        G3: 196.0,
+        "G#3": 207.65,
+        A3: 220.0,
+        "A#3": 233.08,
+        B3: 246.94,
+        // Octave 4
+        C4: 261.63,
+        "C#4": 277.18,
+        D4: 293.66,
+        "D#4": 311.13,
+        E4: 329.63,
+        F4: 349.23,
+        "F#4": 369.99,
+        G4: 392.0,
+        "G#4": 415.3,
+        A4: 440.0,
+        "A#4": 466.16,
+        B4: 493.88,
+        // Octave 5
+        C5: 523.25,
+        "C#5": 554.37,
+        D5: 587.33,
+        "D#5": 622.25,
+        E5: 659.25,
+        F5: 698.46,
+        "F#5": 739.99,
+        G5: 783.99,
+        "G#5": 830.61,
+        A5: 880.0,
+        "A#5": 932.33,
+        B5: 987.77,
+      };
+
+      // Get Foundry's game object from parent window
+      const game = window.parent.game;
+      const MODULE_ID = "html-to-scene";
+
+      // Current player info
+      let currentUserId = null;
+      let currentUserName = "Unknown";
+
+      // Track which notes this player is actively playing (for proper sync)
+      const activeMouseNotes = new Set();
+
+      // Initialize
+      function init() {
+        // Initialize audio context on first user interaction
+        document.addEventListener("click", initAudio, { once: true });
+        document.addEventListener("keydown", initAudio, { once: true });
+
+        // Set up Foundry connection
+        if (game && game.user) {
+          currentUserId = game.user.id;
+          currentUserName = game.user.name;
+          document.getElementById("playerName").textContent = currentUserName;
+          document.getElementById("status").textContent =
+            "Connected to Foundry - All players synced!";
+          document.getElementById("status").className = "status connected";
+
+          // Listen for socket messages from other players
+          game.socket.on(`module.${MODULE_ID}`, handleSocketMessage);
+        } else {
+          document.getElementById("status").textContent =
+            "Not connected to Foundry - Local mode only";
+          document.getElementById("status").className = "status disconnected";
+        }
+
+        // Set up keyboard controls
+        document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
+
+        // Set up volume control
+        const volumeSlider = document.getElementById("volumeSlider");
+        const volumeValue = document.getElementById("volumeValue");
+        volumeSlider.addEventListener("input", (e) => {
+          volume = e.target.value / 100;
+          volumeValue.textContent = `${e.target.value}%`;
+        });
+
+        // Set up mouse/touch controls
+        document.querySelectorAll(".white-key, .black-key").forEach((key) => {
+          key.addEventListener("mousedown", () => {
+            activeMouseNotes.add(key.dataset.note);
+            playNote(key.dataset.note, true);
+          });
+          key.addEventListener("mouseup", () => {
+            if (activeMouseNotes.has(key.dataset.note)) {
+              activeMouseNotes.delete(key.dataset.note);
+              stopNote(key.dataset.note, true);
+            }
+          });
+          key.addEventListener("mouseleave", () => {
+            // Only broadcast if we were actually playing this note
+            if (activeMouseNotes.has(key.dataset.note)) {
+              activeMouseNotes.delete(key.dataset.note);
+              stopNote(key.dataset.note, true);
+            }
+          });
+          key.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            activeMouseNotes.add(key.dataset.note);
+            playNote(key.dataset.note, true);
+          });
+          key.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            if (activeMouseNotes.has(key.dataset.note)) {
+              activeMouseNotes.delete(key.dataset.note);
+              stopNote(key.dataset.note, true);
+            }
+          });
+        });
+      }
+
+      function initAudio() {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+        }
+      }
+
+      // Handle incoming socket messages
+      function handleSocketMessage(data) {
+        if (data.userId === currentUserId) return; // Ignore own messages
+
+        if (data.type === "noteOn") {
+          showOtherPlayerNote(data.note, data.userName);
+          playSound(data.note);
+        } else if (data.type === "noteOff") {
+          hideOtherPlayerNote(data.note);
+        }
+      }
+
+      // Send note to other players via socket
+      function sendNoteToPlayers(type, note) {
+        if (game && game.socket) {
+          game.socket.emit(`module.${MODULE_ID}`, {
+            type: type,
+            note: note,
+            userId: currentUserId,
+            userName: currentUserName,
+          });
+        }
+      }
+
+      // Play a note
+      function playNote(note, broadcast = true) {
+        if (!note) return;
+
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key && !key.classList.contains("active")) {
+          key.classList.add("active");
+          playSound(note);
+
+          if (broadcast) {
+            sendNoteToPlayers("noteOn", note);
+            updateLastPlayed(currentUserName, note);
+          }
+        }
+      }
+
+      // Stop a note
+      function stopNote(note, broadcast = true) {
+        if (!note) return;
+
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key) {
+          key.classList.remove("active");
+
+          if (broadcast) {
+            sendNoteToPlayers("noteOff", note);
+          }
+        }
+      }
+
+      // Show note played by another player
+      function showOtherPlayerNote(note, playerName) {
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key) {
+          key.classList.add("other-player");
+          updateLastPlayed(playerName, note);
+        }
+      }
+
+      // Hide note from another player
+      function hideOtherPlayerNote(note) {
+        const key = document.querySelector(`[data-note="${note}"]`);
+        if (key) {
+          key.classList.remove("other-player");
+        }
+      }
+
+      // Update last played display
+      function updateLastPlayed(playerName, note) {
+        document.getElementById(
+          "lastPlayed"
+        ).textContent = `${playerName} played ${note}`;
+      }
+
+      // Generate and play a piano sound
+      function playSound(note) {
+        if (!audioContext) initAudio();
+        if (!audioContext) return;
+        if (volume === 0) return; // Skip if muted
+
+        const frequency = noteFrequencies[note];
+        if (!frequency) return;
+
+        // Create oscillator for the main tone
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.type = "triangle";
+        oscillator.frequency.setValueAtTime(
+          frequency,
+          audioContext.currentTime
+        );
+
+        // Piano-like envelope with volume control
+        const baseGain = 0.5 * volume;
+        const sustainGain = 0.3 * volume;
+        gainNode.gain.setValueAtTime(baseGain, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(
+          Math.max(sustainGain, 0.001),
+          audioContext.currentTime + 0.1
+        );
+        gainNode.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioContext.currentTime + 1.5
+        );
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 1.5);
+
+        // Add harmonics for richer sound
+        const harmonic = audioContext.createOscillator();
+        const harmonicGain = audioContext.createGain();
+
+        harmonic.type = "sine";
+        harmonic.frequency.setValueAtTime(
+          frequency * 2,
+          audioContext.currentTime
+        );
+        const harmonicBaseGain = 0.15 * volume;
+        harmonicGain.gain.setValueAtTime(
+          harmonicBaseGain,
+          audioContext.currentTime
+        );
+        harmonicGain.gain.exponentialRampToValueAtTime(
+          0.001,
+          audioContext.currentTime + 1
+        );
+
+        harmonic.connect(harmonicGain);
+        harmonicGain.connect(audioContext.destination);
+
+        harmonic.start(audioContext.currentTime);
+        harmonic.stop(audioContext.currentTime + 1);
+      }
+
+      // Keyboard controls - 3 octaves
+      const keyMap = {
+        // Lower octave (C3-B3) - bottom row
+        z: "C3",
+        x: "D3",
+        c: "E3",
+        v: "F3",
+        b: "G3",
+        n: "A3",
+        m: "B3",
+        // Middle octave (C4-B4) - home row
+        a: "C4",
+        s: "D4",
+        d: "E4",
+        f: "F4",
+        g: "G4",
+        h: "A4",
+        j: "B4",
+        // Upper octave (C5-B5) - top row
+        q: "C5",
+        w: "D5",
+        e: "E5",
+        r: "F5",
+        t: "G5",
+        y: "A5",
+        u: "B5",
+        // Black keys - number row
+        1: "C#3",
+        2: "D#3",
+        3: "F#3",
+        4: "G#3",
+        5: "A#3",
+        6: "C#4",
+        7: "D#4",
+        8: "F#4",
+        9: "G#4",
+        0: "A#4",
+        "-": "C#5",
+        "=": "D#5",
+        "[": "F#5",
+        "]": "G#5",
+        "\\": "A#5",
+      };
+
+      const activeKeys = new Set();
+
+      function handleKeyDown(e) {
+        const key = e.key.toLowerCase();
+        if (keyMap[key] && !activeKeys.has(key)) {
+          activeKeys.add(key);
+          playNote(keyMap[key], true);
+        }
+      }
+
+      function handleKeyUp(e) {
+        const key = e.key.toLowerCase();
+        if (keyMap[key]) {
+          activeKeys.delete(key);
+          stopNote(keyMap[key], true);
+        }
+      }
+
+      // Initialize when DOM is ready
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    </script>
+  </body>
+</html>
